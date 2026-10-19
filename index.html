@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#10151b">
+<title>IRON CHESS — Шахматы</title>
+<link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Iron Chess"><span class="brand-mark">IC</span><span>IRON <b>CHESS</b></span></a>
+    <div class="top-meta"><span class="status-dot"></span><span id="connection-label">ЛОКАЛЬНАЯ ИГРА</span></div>
+    <button id="new-game-top" class="ghost-button">Новая партия <span>↻</span></button>
+  </header>
+  <main class="layout">
+    <section class="board-column">
+      <div class="player-strip opponent-strip">
+        <div class="avatar bot-avatar">AI</div><div class="player-info"><strong>IRON ENGINE</strong><small id="bot-caption">Тактический анализ · уровень 3</small></div>
+        <div class="player-clock" id="bot-clock">∞</div>
+        <div id="bot-material" class="material"></div>
+      </div>
+      <div class="board-frame">
+        <div class="coordinates files-top" id="files-top"></div>
+        <div class="board-wrap">
+          <div class="coordinates ranks-left" id="ranks-left"></div>
+          <div id="board" class="board" role="grid" aria-label="Шахматная доска"></div>
+          <div class="coordinates ranks-right" id="ranks-right"></div>
+        </div>
+        <div class="coordinates files-bottom" id="files-bottom"></div>
+      </div>
+      <div class="player-strip user-strip">
+        <div class="avatar user-avatar">YOU</div><div class="player-info"><strong>ИГРОК</strong><small id="player-caption">Белые · ваш ход</small></div>
+        <div class="player-clock" id="player-clock">∞</div>
+        <div id="player-material" class="material"></div>
+      </div>
+      <div class="board-footer"><span id="turn-indicator"><i class="mini-dot"></i> ХОД БЕЛЫХ</span><span id="move-count">ХОД 1</span><span id="engine-status">ENGINE READY</span></div>
+    </section>
+    <aside class="side-panel">
+      <div class="panel-heading"><div><span class="eyebrow">COMMAND CENTER</span><h1>Партия</h1></div><span class="live-pill"><i></i> LIVE</span></div>
+      <div class="mode-card">
+        <div class="mode-icon">♞</div><div class="mode-copy"><strong>Против движка</strong><small>Локальный ИИ · без интернета</small></div><span class="mode-tag">1P</span>
+      </div>
+      <div class="settings-grid">
+        <label>Сторона<select id="side-select"><option value="w">Играть белыми</option><option value="b">Играть чёрными</option></select></label>
+        <label>Сложность<select id="depth-select"><option value="1">1 · Быстрый</option><option value="2">2 · Любитель</option><option value="3" selected>3 · Тактик</option><option value="4">4 · Стратег</option><option value="5">5 · Аналитик</option></select></label>
+        <label>Контроль времени<select id="time-select"><option value="0">Без часов</option><option value="300">5 + 0</option><option value="600">10 + 0</option><option value="900">15 + 0</option></select></label>
+        <label>Доска<select id="theme-select"><option value="classic">Графит / слоновая кость</option><option value="green">Турнирная зелёная</option><option value="blue">Полярная синяя</option></select></label>
+      </div>
+      <div class="action-row"><button id="new-game" class="primary-button">Начать партию <span>→</span></button><button id="flip-board" class="icon-button" title="Перевернуть доску">⇅</button></div>
+      <div class="section-title"><span>ХОДЫ</span><span id="move-total">0 ПОЛУХОДОВ</span></div>
+      <div id="move-list" class="move-list"><div class="empty-moves">Пока нет ходов.<br><span>Сделайте первый ход на доске.</span></div></div>
+      <div class="section-title eval-title"><span>ОЦЕНКА ПОЗИЦИИ</span><span id="eval-label">0.0</span></div>
+      <div class="eval-bar"><div id="eval-fill"></div><span class="eval-mid"></span></div>
+      <div class="engine-note"><div class="engine-pulse"></div><div><strong id="engine-title">Движок готов к анализу</strong><p id="engine-note">Выберите фигуру, чтобы увидеть легальные ходы. ИИ ищет тактические продолжения.</p></div></div>
+      <div class="bottom-actions"><button id="undo" class="text-button">↶ Отменить ход</button><button id="hint" class="text-button">✦ Подсказка</button><button id="resign" class="text-button danger">Сдаться</button></div>
+    </aside>
+  </main>
+  <footer class="footer"><span>IRON CHESS <b>0.9.0</b></span><span>Локальный движок · правила FIDE · альфа-бета поиск</span><span>СОЗДАНО ДЛЯ АНАЛИЗА</span></footer>
+</div>
+<div id="promotion-modal" class="modal hidden"><div class="modal-card"><span class="eyebrow">ПРЕВРАЩЕНИЕ</span><h2>Выберите фигуру</h2><div id="promotion-options" class="promotion-options"></div></div></div>
+<div id="result-modal" class="modal hidden"><div class="modal-card result-card"><span class="eyebrow">ПАРТИЯ ЗАВЕРШЕНА</span><h2 id="result-title">Мат</h2><p id="result-text"></p><button id="result-new" class="primary-button">Новая партия →</button></div></div>
+<script src="src/chess.js"></script>
+<script src="src/engine.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>

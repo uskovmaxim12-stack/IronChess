@@ -1,0 +1,42 @@
+/* Iron Chess rules core. 0x88 board representation. */
+(function(global){
+'use strict';
+const START='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+const VALUES={p:100,n:320,b:335,r:500,q:900,k:20000};
+const KNIGHT=[-33,-31,-18,-14,14,18,31,33], BISHOP=[-17,-15,15,17], ROOK=[-16,-1,1,16], KING=[-17,-16,-15,-1,1,15,16,17];
+const inside=s=>(s&0x88)===0, color=p=>p===p.toUpperCase()?'w':'b', opposite=c=>c==='w'?'b':'w';
+const sqName=s=>String.fromCharCode(97+(s&7))+String(8-(s>>4));
+const parseSq=s=>{if(!/^[a-h][1-8]$/.test(s))return -1;return (8-Number(s[1]))*16+s.charCodeAt(0)-97};
+const cloneState=s=>({board:s.board.slice(),turn:s.turn,castling:s.castling,ep:s.ep,halfmove:s.halfmove,fullmove:s.fullmove,history:s.history.slice(),repetition:new Map(s.repetition),lastMove:s.lastMove?{...s.lastMove}:null});
+function positionKey(s){return s.board.map(p=>p||'.').join('')+' '+s.turn+' '+s.castling+' '+(s.ep>=0?s.ep:'-')}
+function create(){let s={board:Array(128).fill(null),turn:'w',castling:'KQkq',ep:-1,halfmove:0,fullmove:1,history:[],repetition:new Map(),lastMove:null};load(s,START);return s}
+function load(s,fen){const parts=fen.split(/\s+/);s.board=Array(128).fill(null);let rows=parts[0].split('/');for(let r=0;r<8;r++){let f=0;for(const ch of rows[r]){if(/\d/.test(ch))f+=+ch;else{s.board[r*16+f]=ch;f++}}}s.turn=parts[1]||'w';s.castling=parts[2]||'-';s.ep=parts[3]&&parts[3]!=='-'?parseSq(parts[3]):-1;s.halfmove=+(parts[4]||0);s.fullmove=+(parts[5]||1);s.history=[];s.repetition=new Map();s.lastMove=null;s.repetition.set(positionKey(s),1);return s}
+function fen(s){let rows=[];for(let r=0;r<8;r++){let row='',empty=0;for(let f=0;f<8;f++){const p=s.board[r*16+f];if(!p)empty++;else{if(empty)row+=empty,empty=0;row+=p}}if(empty)row+=empty;rows.push(row)}return rows.join('/')+' '+s.turn+' '+(s.castling||'-')+' '+(s.ep>=0?sqName(s.ep):'-')+' '+s.halfmove+' '+s.fullmove}
+function kingSquare(s,c){for(let i=0;i<128;i++){if(!inside(i)){i+=7;continue}if(s.board[i]===(c==='w'?'K':'k'))return i}return -1}
+function attacked(s,target,by){const b=s.board;const pawnDir=by==='w'?-16:16;for(const d of [-1,1]){let q=target-pawnDir+d;if(inside(q)&&b[q]===(by==='w'?'P':'p'))return true}for(const d of KNIGHT){let q=target+d;if(inside(q)&&b[q]===(by==='w'?'N':'n'))return true}for(const d of KING){let q=target+d;if(inside(q)&&b[q]===(by==='w'?'K':'k'))return true}
+for(const [dirs,pieces] of [[BISHOP,'bq'],[ROOK,'rq']])for(const d of dirs){let q=target+d;while(inside(q)){let p=b[q];if(p){if(color(p)===by&&pieces.includes(p.toLowerCase()))return true;break}q+=d}}
+return false}
+function inCheck(s,c=s.turn){const k=kingSquare(s,c);return k>=0&&attacked(s,k,opposite(c))}
+function pseudo(s,onlyCaptures=false){const b=s.board,c=s.turn,us=c==='w'?'white':'black',out=[];const add=(from,to,extra={})=>{const m={from,to,piece:b[from],captured:b[to]||null,...extra};out.push(m)};
+for(let from=0;from<128;from++){if(!inside(from)){from+=7;continue}const p=b[from];if(!p||color(p)!==c)continue;const t=p.toLowerCase();
+if(t==='p'){const dir=c==='w'?-16:16,rank=from>>4,promoRank=c==='w'?0:7,one=from+dir;if(!onlyCaptures&&inside(one)&&!b[one]){if((one>>4)===promoRank){for(const pr of ['q','r','b','n'])add(from,one,{promotion:pr})}else{add(from,one);const two=from+2*dir;if((rank===(c==='w'?6:1))&&!b[two])add(from,two,{doublePush:true})}}
+for(const df of [-1,1]){const to=from+dir+df;if(!inside(to))continue;if(b[to]&&color(b[to])!==c){if((to>>4)===promoRank)for(const pr of ['q','r','b','n'])add(from,to,{promotion:pr});else add(from,to)}else if(to===s.ep)add(from,to,{enPassant:true,captured:c==='w'?'p':'P'})}
+}else{let dirs=t==='n'?KNIGHT:t==='b'?BISHOP:t==='r'?ROOK:t==='q'?KING:t==='k'?KING:[];for(const d of dirs){let to=from+d;while(inside(to)){if(!b[to]){if(!onlyCaptures&&t!=='n'&&t!=='k'||!onlyCaptures&&t==='n'||!onlyCaptures&&t==='k')add(from,to)}else{if(color(b[to])!==c)add(from,to);break}if(t==='n'||t==='k')break;to+=d}}}
+}
+if(!onlyCaptures&&!inCheck(s,c)){const row=c==='w'?7:0,king=c==='w'?'K':'k',rook=c==='w'?'R':'r';if(b[row*16+4]===king){if(s.castling.includes(c==='w'?'K':'k')&&b[row*16+7]===rook&&!b[row*16+5]&&!b[row*16+6]&&!attacked(s,row*16+5,opposite(c))&&!attacked(s,row*16+6,opposite(c)))add(row*16+4,row*16+6,{castle:'K'});if(s.castling.includes(c==='w'?'Q':'q')&&b[row*16]===rook&&!b[row*16+1]&&!b[row*16+2]&&!b[row*16+3]&&!attacked(s,row*16+3,opposite(c))&&!attacked(s,row*16+2,opposite(c)))add(row*16+4,row*16+2,{castle:'Q'})}}
+return out}
+function make(s,m,track=true){const b=s.board,old={turn:s.turn,castling:s.castling,ep:s.ep,halfmove:s.halfmove,fullmove:s.fullmove,lastMove:s.lastMove};m._undo={piece:b[m.from],captured:m.enPassant?(s.turn==='w'?'p':'P'):b[m.to],ep:s.ep,castling:s.castling,halfmove:s.halfmove,fullmove:s.fullmove,turn:s.turn,lastMove:s.lastMove};
+b[m.from]=null;if(m.enPassant)b[m.to+(s.turn==='w'?16:-16)]=null;b[m.to]=m.promotion?(s.turn==='w'?m.promotion.toUpperCase():m.promotion):m.piece;
+if(m.castle){const row=m.from>>4;if(m.castle==='K'){b[row*16+5]=b[row*16+7];b[row*16+7]=null}else{b[row*16+3]=b[row*16];b[row*16]=null}}
+if(m.piece.toLowerCase()==='k')s.castling=s.castling.replace(s.turn==='w'?/[KQ]/g:/[kq]/g,'');
+if(m.from===112||m.to===112)s.castling=s.castling.replace('Q','');if(m.from===119||m.to===119)s.castling=s.castling.replace('K','');if(m.from===0||m.to===0)s.castling=s.castling.replace('q','');if(m.from===7||m.to===7)s.castling=s.castling.replace('k','');
+s.ep=m.doublePush?m.from+(s.turn==='w'?-16:16):-1;s.halfmove=(m.piece.toLowerCase()==='p'||m.captured)?0:s.halfmove+1;if(s.turn==='b')s.fullmove++;s.turn=opposite(s.turn);s.lastMove={from:m.from,to:m.to};if(track){s.history.push({move:{...m,_undo:undefined},before:old});const k=positionKey(s);s.repetition.set(k,(s.repetition.get(k)||0)+1)}return m._undo}
+function unmake(s,m){const u=m._undo,b=s.board;s.turn=u.turn;s.castling=u.castling;s.ep=u.ep;s.halfmove=u.halfmove;s.fullmove=u.fullmove;s.lastMove=u.lastMove;b[m.from]=u.piece;b[m.to]=m.enPassant?null:u.captured;if(m.enPassant)b[m.to+(s.turn==='w'?16:-16)]=u.captured;if(m.castle){const row=m.from>>4;if(m.castle==='K'){b[row*16+7]=b[row*16+5];b[row*16+5]=null}else{b[row*16]=b[row*16+3];b[row*16+3]=null}}}
+function legalMoves(s,from=null){const ms=pseudo(s),out=[];for(const m of ms){if(from!==null&&m.from!==from)continue;make(s,m,false);const safe=!inCheck(s,opposite(s.turn));unmake(s,m);if(safe)out.push(m)}return out}
+function san(s,m,allLegal){const piece=m.piece.toLowerCase(),capture=!!(m.captured||m.enPassant);let out='';if(m.castle)out=m.castle==='K'?'O-O':'O-O-O';else{if(piece!=='p')out=piece.toUpperCase();if(piece!=='p'){const rivals=allLegal.filter(x=>x.to===m.to&&x.from!==m.from&&x.piece.toLowerCase()===piece);if(rivals.length){const sameFile=rivals.some(x=>(x.from&7)===(m.from&7));const sameRank=rivals.some(x=>(x.from>>4)===(m.from>>4));out+=!sameFile?String.fromCharCode(97+(m.from&7)):!sameRank?String(8-(m.from>>4)):sqName(m.from)}}else if(capture)out+=String.fromCharCode(97+(m.from&7));if(capture)out+='x';out+=sqName(m.to);if(m.promotion)out+='='+m.promotion.toUpperCase()}
+make(s,m,false);const check=inCheck(s);const end=legalMoves(s).length===0;unmake(s,m);if(check)out+=end?'#':'+';return out}
+function status(s){const ms=legalMoves(s);if(ms.length===0)return inCheck(s)?{over:true,result:s.turn==='w'?'0-1':'1-0',reason:'checkmate'}:{over:true,result:'1/2-1/2',reason:'stalemate'};if(s.halfmove>=100)return{over:true,result:'1/2-1/2',reason:'fifty-move rule'};if((s.repetition.get(positionKey(s))||0)>=3)return{over:true,result:'1/2-1/2',reason:'threefold repetition'};let pieces=s.board.filter(Boolean).map(x=>x.toLowerCase());if(pieces.filter(x=>x==='k').length===2&&pieces.every(x=>x==='k'||x==='n'||x==='b')&&pieces.filter(x=>x!=='k').length<=1)return{over:true,result:'1/2-1/2',reason:'insufficient material'};return{over:false,check:inCheck(s),moves:ms}}
+function material(s,c){let n=0;for(let p of s.board)if(p&&color(p)===c&&p.toLowerCase()!=='k')n+=VALUES[p.toLowerCase()];return n}
+function uci(m){return sqName(m.from)+sqName(m.to)+(m.promotion||'')}
+global.ChessCore={START,VALUES,create,load,fen,cloneState,positionKey,inside,sqName,parseSq,color,opposite,kingSquare,attacked,inCheck,pseudo,make,unmake,legalMoves,san,status,material,uci};
+})(window);
